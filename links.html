@@ -89,6 +89,13 @@
     transition:transform .15s ease, background .2s ease;
   }
   .links a:hover{background:var(--btn-hover)}
+  .links a.review{
+    margin-top:8px;background:transparent;color:var(--ink);
+    border:1.5px solid #B8955C;
+    background:linear-gradient(135deg,rgba(205,176,122,.18),rgba(184,149,92,.08));
+  }
+  .links a.review .ico svg{stroke:#B8955C}
+  .links a.review:hover{background:rgba(205,176,122,.25)}
   .links a:active{transform:scale(.98)}
   .links a .ico{
     position:absolute;left:24px;top:50%;transform:translateY(-50%);
@@ -197,11 +204,13 @@ const LINKS = {
   keeta:     "https://url.mykeeta.com/dAjCYcIz",
   ninja:     "https://ninja.go.link/restaurants?restaurantId=28642",
   instagram: "https://www.instagram.com/voren.cafe",
-  tiktok:    "https://www.tiktok.com/@voren.cafe"
+  tiktok:    "https://www.tiktok.com/@voren.cafe",
+  review:    "https://search.google.com/local/writereview?placeid=ChIJe6B2CJgJLz4RQybQbfS3xLo"
 };
 /* ============================================ */
 
 const ICONS = {
+  review:`<svg viewBox="0 0 36 36"><path d="M18 5l3.9 8 8.6 1.2-6.2 6 1.5 8.6L18 24.8l-7.8 4 1.5-8.6-6.2-6 8.6-1.2Z"/></svg>`,
   menu: `<svg viewBox="0 0 36 36"><path d="M18 9c-3-2-8-2.5-12-1.5v20c4-1 9-.5 12 1.5 3-2 8-2.5 12-1.5v-20c-4-1-9-.5-12 1.5Z"/><path d="M18 9v20"/><path d="M9.5 13h5M9.5 17h5M9.5 21h5M21.5 13h5M21.5 17h5M21.5 21h5"/></svg>`,
   map:  `<svg viewBox="0 0 36 36"><path d="M18 32s-9-9.5-9-16a9 9 0 0 1 18 0c0 6.5-9 16-9 16Z"/><circle cx="18" cy="16" r="3.4"/></svg>`,
   keeta:`<svg viewBox="0 0 36 36"><path d="M7 12h22l-1.5 19h-19Z"/><path d="M13 12V9a5 5 0 0 1 10 0v3"/><text class="brand-tag" x="18" y="24.5" text-anchor="middle">keeta</text></svg>`,
@@ -216,7 +225,8 @@ const ITEMS = [
   ["keeta",     "اطلب عبر كيتا",         "Order on Keeta"],
   ["ninja",     "اطلب عبر نينجا",        "Order on Ninja"],
   ["instagram", "تابعنا على إنستغرام",   "Follow us on Instagram"],
-  ["tiktok",    "تابعنا على تيك توك",    "Follow us on TikTok"]
+  ["tiktok",    "تابعنا على تيك توك",    "Follow us on TikTok"],
+  ["review",    "تقييمك يهمنا ❤️",       "Your Review Matters ❤️"]
 ];
 
 const TEXT = {
@@ -237,8 +247,8 @@ function render(lang){
     const url = LINKS[key];
     if(!url) return;
     const li = document.createElement("li");
-    li.innerHTML = `<a href="${url}" target="_blank" rel="noopener">
-        <span class="ico" style="color:#F6EEE3">${ICONS[key]}</span>${lang==="ar"?ar:en}</a>`;
+    li.innerHTML = `<a href="${url}" target="_blank" rel="noopener"${key==="review"?' class="review"':''}>
+        <span class="ico">${ICONS[key]}</span>${lang==="ar"?ar:en}</a>`;
     ul.appendChild(li);
   });
 }
