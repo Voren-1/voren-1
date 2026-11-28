@@ -62,6 +62,8 @@
     word-break:break-all;color:#e8d6c2
   }
   .hidden{display:none}
+  .pw-label{margin-top:16px}
+  #wifipw{letter-spacing:.12em}
 </style>
 </head>
 <body>
@@ -93,6 +95,13 @@
         <span class="cc">🇸🇦 +966</span>
         <input id="mobile" type="tel" inputmode="numeric" autocomplete="tel-national"
                placeholder="5X XXX XXXX" maxlength="12">
+      </div>
+
+      <label class="f pw-label" for="wifipw" data-t="pwLabel"></label>
+      <div class="phone" id="pwBox">
+        <span class="cc">🧾</span>
+        <input id="wifipw" type="text" autocomplete="off" autocapitalize="characters"
+               spellcheck="false" maxlength="20" data-tp="pwPh">
       </div>
       <div class="err" id="err"></div>
 
@@ -129,7 +138,14 @@ const CONFIG = {
 
   // Fixed login URL, ONLY if Linksys's Help page tells you to use one.
   // Normally leave "" — the page reads it from the URL the access point sends.
-  grantUrlOverride: ""
+  grantUrlOverride: "",
+
+  // Receipt password — stored as a SHA-256 fingerprint, NOT the password itself,
+  // so nobody can read it from the page source.
+  // To get the fingerprint: open the page with ?debug=1, type the password in
+  // the receipt box, and copy the fingerprint shown at the bottom.
+  // Leave "" to switch the password check off.
+  receiptPasswordHash: "92a8c8f84bb0dc410200e1cd8fc79ce1c0461541fc1d986c3958742fa339e8d2"
 };
 /* ======================================================= */
 
@@ -140,6 +156,8 @@ const T = {
     btn:"اتصل بالإنترنت", wait:"جارٍ الاتصال…",
     errNum:"أدخل رقم جوال سعودي صحيح يبدأ بـ 5", errAgree:"يرجى الموافقة للمتابعة",
     errGrant:"تعذّر إكمال الاتصال. يرجى طلب المساعدة من الفريق.",
+    pwLabel:"كلمة المرور (موجودة في الفاتورة)", pwPh:"من الفاتورة",
+    errPw:"كلمة المرور غير صحيحة، تجدها مطبوعة في فاتورتك", errPwEmpty:"أدخل كلمة المرور الموجودة في الفاتورة",
     doneTitle:"تم الاتصال", doneSub:"استمتع بقهوتك وبالإنترنت.",
     foot:"VOREN Specialty Coffee · Guest Wi-Fi", other:"English"
   },
@@ -149,6 +167,8 @@ const T = {
     btn:"Connect", wait:"Connecting…",
     errNum:"Enter a valid Saudi mobile number starting with 5", errAgree:"Please agree to continue",
     errGrant:"We couldn't finish connecting you. Please ask our team for help.",
+    pwLabel:"Password (printed on your receipt)", pwPh:"From your receipt",
+    errPw:"Wrong password — you'll find it printed on your receipt", errPwEmpty:"Enter the password from your receipt",
     doneTitle:"You're connected", doneSub:"Enjoy your coffee and the Wi-Fi.",
     foot:"VOREN Specialty Coffee · Guest Wi-Fi", other:"العربية"
   }
@@ -160,6 +180,12 @@ function render(){
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   document.querySelectorAll("[data-t]").forEach(el => el.textContent = T[lang][el.dataset.t]);
+  document.querySelectorAll("[data-tp]").forEach(el => el.placeholder = T[lang][el.dataset.tp]);
+  // Password check off → hide the box (still shown with ?debug=1 to create a fingerprint)
+  if (!CONFIG.receiptPasswordHash && new URLSearchParams(location.search).get("debug") !== "1") {
+    document.querySelector(".pw-label").classList.add("hidden");
+    $("pwBox").classList.add("hidden");
+  }
   $("langBtn").textContent = T[lang].other;
 }
 $("langBtn").onclick = () => { lang = lang === "ar" ? "en" : "ar"; render(); };
@@ -186,6 +212,28 @@ $("mobile").addEventListener("input", e => {
   const d = normalize(e.target.value).slice(0, 9);
   e.target.value = d.replace(/^(\d{2})(\d{0,3})(\d{0,4}).*/, (m,a,b,c) => [a,b,c].filter(Boolean).join(" "));
   $("phoneBox").classList.remove("bad"); $("err").textContent = "";
+});
+
+/* ---- Receipt password ---- */
+// Arabic digits → English, trim, ignore spaces and upper/lower case
+function cleanPw(raw){
+  return raw.replace(/[٠-٩]/g, c => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
+            .replace(/[۰-۹]/g, c => "۰۱۲۳۴۵۶۷۸۹".indexOf(c))
+            .replace(/\s+/g, "").toUpperCase();
+}
+async function pwHash(raw){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("voren:" + cleanPw(raw)));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+$("wifipw").addEventListener("input", async e => {
+  $("pwBox").classList.remove("bad"); $("err").textContent = "";
+  if (P.get("debug") === "1") {        // helper for setting / changing the password
+    let line = $("pwDebug");
+    if (!line) { line = document.createElement("div"); line.id = "pwDebug"; $("debug").appendChild(line); }
+    line.innerHTML = e.target.value
+      ? `<br><b>receiptPasswordHash</b> for "${cleanPw(e.target.value).replace(/</g,"&lt;")}":<br>${await pwHash(e.target.value)}`
+      : "";
+  }
 });
 
 /* ---- Save number (does not block login if it fails) ---- */
@@ -228,6 +276,13 @@ $("form").addEventListener("submit", async e => {
   e.preventDefault();
   const d = normalize($("mobile").value);
   if (!/^5\d{8}$/.test(d)) { $("phoneBox").classList.add("bad"); $("err").textContent = T[lang].errNum; return; }
+  if (CONFIG.receiptPasswordHash) {
+    const pw = $("wifipw").value;
+    if (!cleanPw(pw)) { $("pwBox").classList.add("bad"); $("err").textContent = T[lang].errPwEmpty; return; }
+    if (await pwHash(pw) !== CONFIG.receiptPasswordHash.trim().toLowerCase()) {
+      $("pwBox").classList.add("bad"); $("err").textContent = T[lang].errPw; return;
+    }
+  }
   if (!$("agree").checked) { $("err").textContent = T[lang].errAgree; return; }
 
   const btn = $("go"); btn.disabled = true; btn.textContent = T[lang].wait;
